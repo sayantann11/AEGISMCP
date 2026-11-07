@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegismcp"
+version = "0.1.0"
+description = "Developer-first security and privacy proxy for AI workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "redis>=5,<7",
+  "cryptography>=42,<46",
+  "httpx>=0.27,<1",
+  "click>=8.1,<9",
+  "python-dotenv>=1,<2",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.24,<2",
+]
+pii = [
+  "presidio-analyzer>=2.2,<3",
+  "spacy>=3.7,<4",
+]
+
+[project.scripts]
+aegismcp = "aegismcp.cli:main"
+
+[tool.setuptools]
+packages = ["aegismcp"]
+py-modules = ["proxy_server"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

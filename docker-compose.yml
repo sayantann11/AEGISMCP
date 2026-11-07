@@ -1,0 +1,41 @@
+services:
+  redis-vault:
+    image: redis:7.4-alpine
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    volumes:
+      - ./docker/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./docker/users.acl:/run/redis/acl/users.acl:ro
+      - ./secrets/redis-tls:/run/redis/tls:ro
+    ports:
+      - "127.0.0.1:6380:6379"
+    networks:
+      - vault-internal
+    restart: unless-stopped
+    # Host binding is loopback only; app/test containers use the project network.
+
+  redis-test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:ro
+    environment:
+      AEGIS_LIVE_REDIS: "1"
+      REDIS_HOST: redis-vault
+      REDIS_PORT: "6379"
+    networks:
+      - vault-internal
+    depends_on:
+      - redis-vault
+    command: ["python", "-m", "pytest", "-p", "no:cacheprovider", "-q", "tests"]
+
+networks:
+  vault-internal:
+    # The proxy runs from the host for local development. Redis remains
+    # reachable only through the explicit 127.0.0.1:6380 host binding above;
+    # TLS/mTLS and ACL authentication are still required.

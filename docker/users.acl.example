@@ -1,0 +1,5 @@
+# Replace <SHA256_HEX_OF_LONG_RANDOM_PASSWORD> before deployment.
+# The proxy can only read/write/delete keys in its namespace. SET EX is used
+# atomically by the client; Redis ACL cannot require a specific SET option.
+user default off
+user aegismcp on #<SHA256_HEX_OF_LONG_RANDOM_PASSWORD> ~aegis:v1:* -@all +get +set +del
