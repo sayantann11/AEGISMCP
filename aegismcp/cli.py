@@ -8,7 +8,7 @@ import click
 
 
 @click.group()
-@click.version_option(package_name="aegismcp")
+@click.version_option(package_name="aegis-privacy-proxy")
 def main() -> None:
     """Developer-first security and privacy proxy for AI workflows."""
 

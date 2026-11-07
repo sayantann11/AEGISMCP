@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aegismcp"
+name = "aegis-privacy-proxy"
 version = "0.1.0"
 description = "Developer-first security and privacy proxy for AI workflows"
 readme = "README.md"

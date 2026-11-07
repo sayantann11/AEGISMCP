@@ -206,7 +206,7 @@ class PatternDetector:
             from presidio_analyzer.nlp_engine import NlpEngineProvider
         except ImportError as exc:
             raise RuntimeError(
-                "Presidio detection requires `pip install 'aegismcp[pii]'` and "
+                "Presidio detection requires `pip install 'aegis-privacy-proxy[pii]'` and "
                 "`python -m spacy download en_core_web_sm`"
             ) from exc
         provider = NlpEngineProvider(nlp_configuration={

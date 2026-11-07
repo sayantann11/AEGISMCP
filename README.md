@@ -40,6 +40,12 @@ No detector can find every sensitive fact in arbitrary text. Whether information
 
 Requirements: Python 3.10+, Docker Desktop with Compose, and the repository checkout.
 
+To install the published distribution from PyPI:
+
+```powershell
+python -m pip install aegis-privacy-proxy
+```
+
 1. **Prepare and start ephemeral local Redis.** Generate local TLS/ACL credentials once, then start Redis:
 
    ```powershell
