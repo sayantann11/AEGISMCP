@@ -150,3 +150,7 @@ Stop the local Redis service with `docker compose down` when finished.
 ## License
 
 AEGISMCP is released under the [MIT License](LICENSE).
+
+## Architecture handoff
+
+For the system overview, request lifecycle, security boundaries, configuration reference, and current implementation gaps, see the [architecture and design specification](docs/ARCHITECTURE.md).
