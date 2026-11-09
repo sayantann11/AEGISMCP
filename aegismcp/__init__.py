@@ -1,4 +1,4 @@
-"""AEGISMCP Phase 1 prototype components."""
+"""Sutraksh Phase 1 proxy components (legacy import namespace)."""
 
 from .engine import TokenizationEngine, TokenizationResult
 from .vault import InMemoryTokenVault, VaultError

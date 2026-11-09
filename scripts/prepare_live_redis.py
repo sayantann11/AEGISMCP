@@ -77,7 +77,7 @@ def main() -> None:
     ACL_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "AEGISMCP local test CA")])
+    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Sutraksh local test CA")])
     now = datetime.now(timezone.utc)
     ca_cert = (x509.CertificateBuilder().subject_name(ca_name).issuer_name(ca_name)
                .public_key(ca_key.public_key()).serial_number(x509.random_serial_number())
@@ -94,7 +94,7 @@ def main() -> None:
     server_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     client_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     server_cert = issue_cert("localhost", server_key, ca_name, ca_key, server=True)
-    client_cert = issue_cert("aegismcp-live-test", client_key, ca_name, ca_key)
+    client_cert = issue_cert("sutraksh-live-test", client_key, ca_name, ca_key)
 
     (TLS_DIR / "ca.crt").write_bytes(ca_cert.public_bytes(serialization.Encoding.PEM))
     (TLS_DIR / "server.crt").write_bytes(server_cert.public_bytes(serialization.Encoding.PEM))
@@ -109,10 +109,12 @@ def main() -> None:
         f"user aegismcp on #{password_hash} ~aegis:v1:* -@all +get +set +expire +del +pttl\n",
         encoding="utf-8")
     env_values = {
-        "REDIS_HOST": "127.0.0.1", "REDIS_PORT": "6380",
-        "REDIS_USERNAME": "aegismcp", "REDIS_PASSWORD": password,
-        "AES_KEY_B64": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
-        "INDEX_KEY_B64": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
+        "SUTRAKSH_REDIS_HOST": "127.0.0.1", "SUTRAKSH_REDIS_PORT": "6380",
+        # Redis ACL identity and namespace are intentionally retained so
+        # existing local Redis deployments keep working during the rename.
+        "SUTRAKSH_REDIS_USERNAME": "aegismcp", "SUTRAKSH_REDIS_PASSWORD": password,
+        "SUTRAKSH_AES_KEY_B64": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
+        "SUTRAKSH_INDEX_KEY_B64": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
     }
     ENV_FILE.write_text("".join(f"{k}={v}\n" for k, v in env_values.items()), encoding="utf-8")
     try:
@@ -121,7 +123,7 @@ def main() -> None:
         (TLS_DIR / "client.key").chmod(0o600)
     except OSError:
         pass  # Windows permissions are inherited from the current user/workspace.
-    print("Generated local Redis test TLS certificates, ACL, and ignored .env.redis credentials.")
+    print("Generated local Sutraksh Redis test TLS certificates, ACL, and ignored .env.redis credentials.")
     print("These files are for localhost development only; they are not production credentials.")
 
 

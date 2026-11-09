@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegis-privacy-proxy"
-version = "0.1.0"
-description = "Developer-first security and privacy proxy for AI workflows"
+version = "0.1.1"
+description = "Sutraksh: AI security and governance infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -44,7 +44,13 @@ pii = [
 ]
 
 [project.scripts]
+sutraksh = "aegismcp.cli:main"
 aegismcp = "aegismcp.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/sayantann11/sutraksh"
+Repository = "https://github.com/sayantann11/sutraksh"
+Issues = "https://github.com/sayantann11/sutraksh/issues"
 
 [tool.setuptools]
 packages = ["aegismcp"]

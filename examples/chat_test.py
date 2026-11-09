@@ -20,7 +20,7 @@ MOCK_HOST = "127.0.0.1"
 MOCK_PORT = 8101
 FAKE_SECRET = "sk-fake-test-key-123456789012345"
 
-mock_app = FastAPI(title="AEGISMCP example mock upstream")
+mock_app = FastAPI(title="Sutraksh example mock upstream")
 
 
 @mock_app.post("/v1/chat/completions")
@@ -31,7 +31,7 @@ async def mock_chat_completions(request: Request) -> dict:
     print("\n--- Sanitized prompt received by mock upstream ---", flush=True)
     print(prompt, flush=True)
     return {
-        "id": "chatcmpl-aegismcp-example",
+        "id": "chatcmpl-sutraksh-example",
         "object": "chat.completion",
         "choices": [{
             "index": 0,
@@ -44,7 +44,7 @@ async def mock_chat_completions(request: Request) -> dict:
 def main() -> None:
     server = uvicorn.Server(uvicorn.Config(mock_app, host=MOCK_HOST, port=MOCK_PORT,
                                            log_level="warning", access_log=False))
-    thread = threading.Thread(target=server.run, name="aegismcp-mock-upstream", daemon=True)
+    thread = threading.Thread(target=server.run, name="sutraksh-mock-upstream", daemon=True)
     thread.start()
     deadline = time.monotonic() + 10
     while not server.started and thread.is_alive() and time.monotonic() < deadline:
@@ -63,7 +63,7 @@ def main() -> None:
         )
         response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
-        print("\n--- Restored response returned by AEGISMCP ---")
+        print("\n--- Restored response returned by Sutraksh ---")
         print(content)
         if FAKE_SECRET not in content:
             raise RuntimeError("Expected fake secret was not restored; check proxy/vault configuration")

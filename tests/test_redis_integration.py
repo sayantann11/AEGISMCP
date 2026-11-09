@@ -25,25 +25,44 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-@unittest.skipUnless(os.getenv("AEGIS_LIVE_REDIS") == "1", "set AEGIS_LIVE_REDIS=1 to run live Redis test")
+def setting(values: dict[str, str], name: str, *aliases: str) -> str:
+    for key in (name, *aliases):
+        if key in values:
+            return values[key]
+    raise KeyError(name)
+
+
+@unittest.skipUnless(os.getenv("SUTRAKSH_LIVE_REDIS", os.getenv("AEGIS_LIVE_REDIS")) == "1",
+                     "set SUTRAKSH_LIVE_REDIS=1 to run the live Redis test (legacy: AEGIS_LIVE_REDIS)")
 class LiveRedisFlowTests(unittest.TestCase):
     def test_sensitive_value_is_encrypted_stored_and_restored(self):
         env = load_env_file(ROOT / ".env.redis")
         # Compose's private test runner overrides host/port so the test uses
         # service DNS on the isolated Docker network, never host networking.
-        for name in ("REDIS_HOST", "REDIS_PORT", "REDIS_USERNAME", "REDIS_PASSWORD"):
-            if os.getenv(name):
-                env[name] = os.environ[name]
+        for name, aliases in (
+            ("SUTRAKSH_REDIS_HOST", ("AEGIS_REDIS_HOST", "REDIS_HOST")),
+            ("SUTRAKSH_REDIS_PORT", ("AEGIS_REDIS_PORT", "REDIS_PORT")),
+            ("SUTRAKSH_REDIS_USERNAME", ("AEGIS_REDIS_USERNAME", "REDIS_USERNAME")),
+            ("SUTRAKSH_REDIS_PASSWORD", ("AEGIS_REDIS_PASSWORD", "REDIS_PASSWORD")),
+        ):
+            for candidate in (name, *aliases):
+                if os.getenv(candidate):
+                    env[name] = os.environ[candidate]
+                    break
         tls = ROOT / "secrets" / "redis-tls"
         client = create_tls_redis_client(
-            host=env["REDIS_HOST"], port=int(env["REDIS_PORT"]),
-            username=env["REDIS_USERNAME"], password=env["REDIS_PASSWORD"],
+            host=setting(env, "SUTRAKSH_REDIS_HOST", "AEGIS_REDIS_HOST", "REDIS_HOST"),
+            port=int(setting(env, "SUTRAKSH_REDIS_PORT", "AEGIS_REDIS_PORT", "REDIS_PORT")),
+            username=setting(env, "SUTRAKSH_REDIS_USERNAME", "AEGIS_REDIS_USERNAME", "REDIS_USERNAME"),
+            password=setting(env, "SUTRAKSH_REDIS_PASSWORD", "AEGIS_REDIS_PASSWORD", "REDIS_PASSWORD"),
             ca_certs=str(tls / "ca.crt"), client_cert=str(tls / "client.crt"),
             client_key=str(tls / "client.key"),
         )
         vault = RedisTokenVault(
-            client, MappingCipher.from_base64(env["AES_KEY_B64"]),
-            index_key=base64.b64decode(env["INDEX_KEY_B64"], validate=True),
+            client, MappingCipher.from_base64(setting(
+                env, "SUTRAKSH_AES_KEY_B64", "AEGIS_AES_KEY_B64", "AES_KEY_B64")),
+            index_key=base64.b64decode(setting(
+                env, "SUTRAKSH_INDEX_KEY_B64", "AEGIS_INDEX_KEY_B64", "INDEX_KEY_B64"), validate=True),
             ttl_seconds=300,
         )
         tenant = "integration-tenant"

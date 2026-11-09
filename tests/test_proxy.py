@@ -453,7 +453,8 @@ async def test_streaming_tool_arguments_restore_placeholder_split_across_chunks(
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(os.getenv("AEGIS_LIVE_REDIS") != "1", reason="requires the live Redis Compose test environment")
+@pytest.mark.skipif(os.getenv("SUTRAKSH_LIVE_REDIS", os.getenv("AEGIS_LIVE_REDIS")) != "1",
+                    reason="requires the live Redis Compose test environment")
 async def test_proxy_stream_restores_using_live_tls_redis():
     events = [
         {"id": "live-stream", "object": "chat.completion.chunk", "created": 2, "model": "test",

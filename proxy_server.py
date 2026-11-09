@@ -1,4 +1,4 @@
-"""Fail-closed, OpenAI-compatible LLM proxy for AEGISMCP Phase 1.
+"""Fail-closed, OpenAI-compatible LLM proxy for Sutraksh Phase 1.
 
 The proxy buffers JSON responses and safely transforms SSE text/tool deltas.
 It never forwards caller authorization/cookies and never logs prompt contents.
@@ -14,7 +14,6 @@ import logging
 import os
 from pathlib import Path
 import re
-import secrets
 import time
 import uuid
 from urllib.parse import urlsplit
@@ -25,13 +24,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from aegismcp.crypto import MappingCipher
+from aegismcp.config import get_setting
 from aegismcp.detectors import PatternDetector
 from aegismcp.engine import TokenizationEngine
 from aegismcp.redis_vault import RedisTokenVault, create_tls_redis_client
 from aegismcp.vault import InMemoryTokenVault
 
 
-logger = logging.getLogger("aegismcp.proxy")
+logger = logging.getLogger("sutraksh.proxy")
 _MAX_REQUEST_BYTES = 2 * 1024 * 1024
 _TOKEN_KIND = r"[A-Z][A-Z0-9_]{0,47}"
 _PLACEHOLDER = re.compile(rf"\[(?:{_TOKEN_KIND})_\d{{2,}}\]")
@@ -291,9 +291,11 @@ def _replace_strings(value: Any, replacements: Iterator[str]) -> Any:
 
 def _joined_strings(value: Any) -> tuple[str, str, int]:
     strings = list(_iter_strings(value))
-    delimiter = f"\x00AEGISMCP_{secrets.token_hex(16)}\x00"
+    # NUL-only separators remain field boundaries for Presidio and cannot be
+    # misclassified as an entity. Lengthen until the delimiter is collision-free.
+    delimiter = "\x00" * 32
     while any(delimiter in item for item in strings):
-        delimiter = f"\x00AEGISMCP_{secrets.token_hex(16)}\x00"
+        delimiter += "\x00"
     return delimiter.join(strings), delimiter, len(strings)
 
 
@@ -311,7 +313,7 @@ def _load_engine_from_environment() -> TokenizationEngine:
     # the deployment secret manager instead.
     try:
         from dotenv import load_dotenv
-        env_file = os.getenv("AEGIS_ENV_FILE", ".env.redis")
+        env_file = get_setting("AEGIS_ENV_FILE", ".env.redis")
         candidate = Path(env_file)
         if not candidate.is_absolute():
             candidate = Path(__file__).resolve().parent / candidate
@@ -320,33 +322,33 @@ def _load_engine_from_environment() -> TokenizationEngine:
     except ImportError:
         pass
 
-    pii_engine = os.getenv("AEGIS_PII_ENGINE", "pattern").strip().lower()
+    pii_engine = get_setting("AEGIS_PII_ENGINE", "pattern").strip().lower()
     if pii_engine == "pattern":
         detector = PatternDetector()
     elif pii_engine == "presidio":
         detector = PatternDetector.with_presidio()
     else:
-        raise RuntimeError("AEGIS_PII_ENGINE must be 'pattern' or 'presidio'")
+        raise RuntimeError("SUTRAKSH_PII_ENGINE must be 'pattern' or 'presidio' (legacy: AEGIS_PII_ENGINE)")
 
-    aes_key = os.getenv("AEGIS_AES_KEY_B64") or os.getenv("AES_KEY_B64")
-    index_key = os.getenv("AEGIS_INDEX_KEY_B64") or os.getenv("INDEX_KEY_B64")
+    aes_key = get_setting("SUTRAKSH_AES_KEY_B64", None, "AEGIS_AES_KEY_B64", "AES_KEY_B64")
+    index_key = get_setting("SUTRAKSH_INDEX_KEY_B64", None, "AEGIS_INDEX_KEY_B64", "INDEX_KEY_B64")
     if not aes_key or not index_key:
         raise RuntimeError("proxy encryption keys are not configured")
     root = Path(__file__).resolve().parent
-    tls_dir = Path(os.getenv("AEGIS_REDIS_TLS_DIR", str(root / "secrets" / "redis-tls")))
+    tls_dir = Path(get_setting("AEGIS_REDIS_TLS_DIR", str(root / "secrets" / "redis-tls")))
     client = create_tls_redis_client(
-        host=os.getenv("AEGIS_REDIS_HOST") or os.getenv("REDIS_HOST", "127.0.0.1"),
-        port=int(os.getenv("AEGIS_REDIS_PORT") or os.getenv("REDIS_PORT", "6380")),
-        username=os.getenv("AEGIS_REDIS_USERNAME") or os.getenv("REDIS_USERNAME", ""),
-        password=os.getenv("AEGIS_REDIS_PASSWORD") or os.getenv("REDIS_PASSWORD", ""),
-        ca_certs=os.getenv("AEGIS_REDIS_CA_CERTS", str(tls_dir / "ca.crt")),
-        client_cert=os.getenv("AEGIS_REDIS_CLIENT_CERT", str(tls_dir / "client.crt")),
-        client_key=os.getenv("AEGIS_REDIS_CLIENT_KEY", str(tls_dir / "client.key")),
+        host=get_setting("SUTRAKSH_REDIS_HOST", "127.0.0.1", "AEGIS_REDIS_HOST", "REDIS_HOST"),
+        port=int(get_setting("SUTRAKSH_REDIS_PORT", "6380", "AEGIS_REDIS_PORT", "REDIS_PORT")),
+        username=get_setting("SUTRAKSH_REDIS_USERNAME", "", "AEGIS_REDIS_USERNAME", "REDIS_USERNAME"),
+        password=get_setting("SUTRAKSH_REDIS_PASSWORD", "", "AEGIS_REDIS_PASSWORD", "REDIS_PASSWORD"),
+        ca_certs=get_setting("SUTRAKSH_REDIS_CA_CERTS", str(tls_dir / "ca.crt"), "AEGIS_REDIS_CA_CERTS"),
+        client_cert=get_setting("SUTRAKSH_REDIS_CLIENT_CERT", str(tls_dir / "client.crt"), "AEGIS_REDIS_CLIENT_CERT"),
+        client_key=get_setting("SUTRAKSH_REDIS_CLIENT_KEY", str(tls_dir / "client.key"), "AEGIS_REDIS_CLIENT_KEY"),
     )
     vault = RedisTokenVault(
         client, MappingCipher.from_base64(aes_key),
         index_key=base64.b64decode(index_key, validate=True),
-        ttl_seconds=int(os.getenv("AEGIS_VAULT_TTL_SECONDS", "600")),
+        ttl_seconds=int(get_setting("AEGIS_VAULT_TTL_SECONDS", "600")),
     )
     return TokenizationEngine(detector, vault)
 
@@ -408,7 +410,7 @@ def _to_anthropic_request(payload: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {
         "model": payload.get("model"),
         "max_tokens": payload.get("max_tokens", payload.get("max_completion_tokens",
-                                                               int(os.getenv("ANTHROPIC_DEFAULT_MAX_TOKENS", "1024")))),
+                                                               int(get_setting("SUTRAKSH_ANTHROPIC_DEFAULT_MAX_TOKENS", "1024", "ANTHROPIC_DEFAULT_MAX_TOKENS")))),
         "messages": messages,
     }
     if payload.get("stream") is True:
@@ -485,7 +487,7 @@ def create_app(
         if application.state.owns_http_client and application.state.http_client is not None:
             await application.state.http_client.aclose()
 
-    app = FastAPI(title="AEGISMCP Local LLM Proxy", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Sutraksh Local LLM Proxy", version="0.1.0", lifespan=lifespan)
     app.state.engine = engine
     app.state.http_client = upstream_client
     app.state.owns_http_client = upstream_client is None
@@ -520,9 +522,9 @@ def create_app(
             raise HTTPException(status_code=400, detail="A chat completion messages array is required")
         streaming = payload.get("stream") is True
 
-        base_url = app.state.upstream_base_url or os.getenv("AEGIS_UPSTREAM_BASE_URL")
-        provider_name = (app.state.provider or os.getenv("AEGIS_UPSTREAM_PROVIDER", "openai")).lower()
-        active_mode = (app.state.mode or os.getenv("AEGIS_MODE", "enforce")).lower()
+        base_url = app.state.upstream_base_url or get_setting("AEGIS_UPSTREAM_BASE_URL")
+        provider_name = (app.state.provider or get_setting("AEGIS_UPSTREAM_PROVIDER", "openai")).lower()
+        active_mode = (app.state.mode or get_setting("AEGIS_MODE", "enforce")).lower()
         if not base_url:
             raise HTTPException(status_code=500, detail="Upstream provider is not configured")
         if provider_name not in {"openai", "anthropic", "ollama"}:
@@ -550,7 +552,7 @@ def create_app(
             raise HTTPException(status_code=500, detail="Security processing is unavailable") from None
 
         request_session = uuid.uuid4().hex
-        request_tenant = app.state.tenant_id or os.getenv("AEGIS_TENANT_ID", "local-dev")
+        request_tenant = app.state.tenant_id or get_setting("AEGIS_TENANT_ID", "local-dev")
         safe_payload = payload
         joined_prompt, delimiter, prompt_count = _joined_strings(payload["messages"])
         if active_mode == "enforce" and prompt_count:
@@ -581,7 +583,7 @@ def create_app(
         if upstream_key:
             if provider_name == "anthropic":
                 outbound_headers["x-api-key"] = upstream_key
-                outbound_headers["anthropic-version"] = os.getenv("ANTHROPIC_VERSION", "2023-06-01")
+                outbound_headers["anthropic-version"] = get_setting("SUTRAKSH_ANTHROPIC_VERSION", "2023-06-01", "ANTHROPIC_VERSION")
             else:
                 outbound_headers["authorization"] = f"Bearer {upstream_key}"
         try:
