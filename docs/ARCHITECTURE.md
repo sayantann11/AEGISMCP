@@ -92,7 +92,7 @@ Restoration applies to placeholder strings in the upstream response. This is not
 
 With `stream: true`, the proxy opens the upstream response as SSE and translates supported events into OpenAI-compatible SSE chunks. It handles content deltas and tool-argument deltas. A per-stream buffer retains a suffix that could be an incomplete placeholder (for example, `[API_KEY_`), up to 128 characters. Complete placeholders are looked up and restored; unresolved markers or malformed/incomplete marker fragments terminate the stream with a security error event. The proxy emits `data: [DONE]` at completion.
 
-Before returning streaming headers, the proxy resolves all placeholders found in the sanitized request. During later chunk processing the current restorer still calls the engine/vault for complete markers, so a Redis failure after streaming starts can terminate the stream. Once headers have been sent, the proxy cannot change the HTTP status to 500; clients must handle a stream error event or early termination.
+Before opening the upstream stream, the proxy resolves all placeholders found in the sanitized request as a preflight check. The resulting values are not cached for stream processing: when a complete placeholder arrives in a response delta, the current streaming restorer looks it up through the engine and vault again. A Redis failure or mapping expiry after streaming starts can therefore terminate the stream. Once headers have been sent, the proxy cannot change the HTTP status to 500; clients must handle a stream error event or early termination.
 
 ## 5. Provider interface
 
